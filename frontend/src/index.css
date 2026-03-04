@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    overflow-anchor: none;
+  }
+  body {
+    @apply min-h-screen;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    overscroll-behavior: none;
+  }
+  
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: #0D1117;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #3B82F6;
+    border-radius: 6px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: #8B5CF6;
+  }
+}
+
+@layer utilities {
+  .gradient-text {
+    @apply bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500 bg-clip-text text-transparent;
+    background-size: 200% auto;
+  }
+  
+  .glass-effect {
+    @apply backdrop-blur-lg bg-white/70 border border-white/20 shadow-xl;
+  }
+  
+  .dark-glass-effect {
+    @apply backdrop-blur-md bg-[#161B22]/70 border border-[#3B82F6]/20;
+  }
+  
+  .neon-glow {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4),
+                0 0 40px rgba(59, 130, 246, 0.2),
+                0 0 60px rgba(59, 130, 246, 0.1);
+  }
+  
+  .neon-glow-hover:hover {
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.6),
+                0 0 60px rgba(59, 130, 246, 0.4),
+                0 0 90px rgba(59, 130, 246, 0.2);
+  }
+  
+  /* Smooth transitions */
+  .smooth-transition {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}

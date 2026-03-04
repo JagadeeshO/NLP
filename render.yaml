@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: product-review-analyzer
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: PYTHONUNBUFFERED
+        value: 1
+    healthCheckPath: /api/health
+    autoDeploy: true
+
