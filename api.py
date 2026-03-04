@@ -19,27 +19,27 @@ def predict():
         # Check if file is present
         if 'file' not in request.files:
             return jsonify({'error': 'No file provided'}), 400
-        
+
         file = request.files['file']
-        
+
         # Read the CSV file
         df = pd.read_csv(file)
-        
+
         # Validate columns
         required_cols = ['product_name', 'review']
         if not all(col in df.columns for col in required_cols):
             return jsonify({'error': f'CSV must contain columns: {required_cols}'}), 400
-        
+
         # Predict sentiment
-        df['predicted_sentiment'] = model.predict(df['review'].astype(str))
-        
+        df['review'] = df['review'].fillna('no review').astype(str)
+        df['predicted_sentiment'] = mode  l.predict(df['review'])
         # Map numeric labels to text
         sentiment_map = {0: 'Negative', 1: 'Positive'}
         df['sentiment_label'] = df['predicted_sentiment'].map(sentiment_map)
-        
+
         # Calculate sentiment distribution
         sentiment_counts = df['sentiment_label'].value_counts().to_dict()
-        
+
         # Calculate top products by positive sentiment
         top_products = (
             df.groupby('product_name')['predicted_sentiment']
@@ -48,10 +48,10 @@ def predict():
             .head(10)
             .to_dict()
         )
-        
+
         # Get sample predictions
         sample_data = df[['product_name', 'review', 'sentiment_label']].head(20).to_dict('records')
-        
+
         return jsonify({
             'success': True,
             'sentiment_distribution': sentiment_counts,
@@ -59,7 +59,7 @@ def predict():
             'sample_predictions': sample_data,
             'total_reviews': len(df)
         })
-    
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

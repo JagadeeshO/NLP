@@ -64,7 +64,7 @@ const AnalyzerPage = () => {
 
     try {
       // Use relative URL so it works both locally and on Railway
-      const apiUrl = import.meta.env.PROD ? '/api/predict' : 'http://localhost:5000/api/predict'
+      const apiUrl = import.meta.env.PROD ? '/api/predict' : 'http://localhost:8000/api/predict'
       const response = await fetch(apiUrl, {
         method: 'POST',
         body: formData,

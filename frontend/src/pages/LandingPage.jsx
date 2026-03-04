@@ -155,7 +155,7 @@ const LandingPage = () => {
           >
             Created by <span className={`font-semibold ${
               isDarkMode ? 'text-[#3B82F6]' : 'text-slate-800'
-            }`}>Aditya</span>
+            }`}>Team : 16</span>
           </motion.p>
 
           {/* Description */}
