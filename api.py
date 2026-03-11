@@ -32,7 +32,7 @@ def predict():
 
         # Predict sentiment
         df['review'] = df['review'].fillna('no review').astype(str)
-        df['predicted_sentiment'] = mode  l.predict(df['review'])
+        df['predicted_sentiment'] = model.predict(df['review'])
         # Map numeric labels to text
         sentiment_map = {0: 'Negative', 1: 'Positive'}
         df['sentiment_label'] = df['predicted_sentiment'].map(sentiment_map)
@@ -77,5 +77,5 @@ def serve(path):
         return send_from_directory(app.static_folder, 'index.html')
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
