@@ -318,7 +318,7 @@ const LandingPage = () => {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8, delay: 2.0 }}
       >
-        <p className="mb-1">© 2025 Product Review Analyzer — Made with ❤️ using Python & ML</p>
+        <p className="mb-1">© 2025 Product Review Analyzer — Made with using Python & ML</p>
       </motion.footer>
     </div>
   )
