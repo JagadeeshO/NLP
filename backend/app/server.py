@@ -2,6 +2,8 @@ import sys
 import os
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import torch
 import torch.nn.functional as F
 from PIL import Image
@@ -275,6 +277,33 @@ async def predict_sentiment(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# --- Production Frontend Serving ---
+# This serves the built React app from the 'dist' folder
+dist_path = os.path.join(os.path.dirname(__file__), "..", "dist")
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
+if os.path.exists(dist_path):
+    # Mount static files (assets, etc.)
+    # We don't use html=True here because we want the catch-all to handle index.html for SPA routing
+    app.mount("/assets", StaticFiles(directory=os.path.join(dist_path, "assets")), name="static")
+    
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        # If the path looks like a file (has an extension), try to serve it from dist
+        file_path = os.path.join(dist_path, full_path)
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            return FileResponse(file_path)
+        # Otherwise, serve index.html for React Router to handle
+        return FileResponse(os.path.join(dist_path, "index.html"))
+else:
+    @app.get("/")
+    async def root_fallback():
+        return {"message": "Backend API is active. Frontend build placeholder."}
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("server:app", host="0.0.0.0", port=port, reload=True)
