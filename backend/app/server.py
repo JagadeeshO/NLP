@@ -17,6 +17,7 @@ import aiosmtplib
 from email.message import EmailMessage
 import pandas as pd
 import joblib
+import time
 
 # Load environment variables
 load_dotenv()
@@ -27,6 +28,16 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 # Import our trained CNN
 from core.model import SiameseNetwork
 from torchvision import transforms
+
+import logging
+
+# Configure logging to file
+logging.basicConfig(
+    filename='verify_perf.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(message)s',
+    force=True
+)
 
 app = FastAPI(title="Face Auth API")
 
@@ -145,12 +156,21 @@ async def embed_face(file: UploadFile = File(...)):
     Accepts an uploaded image and returns a 128-d face embedding array.
     """
     try:
+        start_time = time.time()
         contents = await file.read()
+        read_time = time.time()
+        
         image = Image.open(io.BytesIO(contents)).convert("RGB")
         tensor = transform(image).unsqueeze(0).to(device)
         
         with torch.no_grad():
             embedding = model.forward_once(tensor)
+        inference_time = time.time()
+            
+        logging.info(f"Embed Time Breakdown:")
+        logging.info(f"  - File Read: {read_time - start_time:.4f}s")
+        logging.info(f"  - Model Inference: {inference_time - read_time:.4f}s")
+        logging.info(f"  - Total: {inference_time - start_time:.4f}s")
             
         return {"embedding": embedding.cpu().numpy().tolist()[0]}
     except Exception as e:
@@ -166,13 +186,17 @@ async def verify_face(
     Computes distance and returns biometric verification decision.
     """
     try:
+        start_time = time.time()
         # 1. Process live image into embedding
         contents = await file.read()
+        read_time = time.time()
+        
         image = Image.open(io.BytesIO(contents)).convert("RGB")
         tensor = transform(image).unsqueeze(0).to(device)
         
         with torch.no_grad():
             live_embedding = model.forward_once(tensor)
+        inference_time = time.time()
             
         # 2. Parse stored embedding
         stored_vector = json.loads(stored_embedding)
@@ -180,6 +204,13 @@ async def verify_face(
         
         # 3. Compute Siamese Network Euclidean Distance
         distance = F.pairwise_distance(live_embedding, stored_tensor).item()
+        end_time = time.time()
+        
+        logging.info(f"Verification Time Breakdown:")
+        logging.info(f"  - File Read: {read_time - start_time:.4f}s")
+        logging.info(f"  - Model Inference: {inference_time - read_time:.4f}s")
+        logging.info(f"  - Vector Comparison: {end_time - inference_time:.4f}s")
+        logging.info(f"  - Total: {end_time - start_time:.4f}s")
         
         # Adjust threshold based on your model's contrastive margin. 1.0 is standard.
         THRESHOLD = 1.0 
