@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+python-dotenv
+aiosmtplib
+pydantic
+torch
+torchvision
+scikit-learn
+Pillow
+matplotlib
+numpy
+tqdm
+pandas
+joblib

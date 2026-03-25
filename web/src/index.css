@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    overflow-anchor: none;
+  }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(circle at 50% 0%, #111827 0%, #030712 100%);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: #F3F4F6;
+  }
+  
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: #0D1117;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #3B82F6;
+    border-radius: 6px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: #8B5CF6;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-gray-900/40 backdrop-blur-xl border border-gray-800/50 shadow-2xl;
+  }
+  .glass-card {
+    @apply bg-gray-900/60 backdrop-blur-lg border border-gray-700/50 rounded-2xl shadow-xl transition-all duration-300;
+  }
+  .glass-effect {
+    @apply backdrop-blur-lg bg-white/70 border border-white/20 shadow-xl;
+  }
+  
+  .dark-glass-effect {
+    @apply backdrop-blur-md bg-[#161B22]/70 border border-[#3B82F6]/20;
+  }
+  
+  .neon-glow {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4),
+                0 0 40px rgba(59, 130, 246, 0.2),
+                0 0 60px rgba(59, 130, 246, 0.1);
+  }
+  
+  .neon-glow-hover:hover {
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.6),
+                0 0 60px rgba(59, 130, 246, 0.4),
+                0 0 90px rgba(59, 130, 246, 0.2);
+  }
+  
+  .smooth-transition {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}

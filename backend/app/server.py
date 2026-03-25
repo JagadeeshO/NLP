@@ -1,0 +1,249 @@
+import sys
+import os
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+import torch
+import torch.nn.functional as F
+from PIL import Image
+import io
+import json
+import os
+import random
+import datetime
+from typing import Dict
+from pydantic import BaseModel, EmailStr
+from dotenv import load_dotenv
+import aiosmtplib
+from email.message import EmailMessage
+import pandas as pd
+import joblib
+
+# Load environment variables
+load_dotenv()
+
+# Add backend root to sys.path to allow imports from core
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+
+# Import our trained CNN
+from core.model import SiameseNetwork
+from torchvision import transforms
+
+app = FastAPI(title="Face Auth API")
+
+# Allow requests from our React App
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Initialize Model State globally
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model = SiameseNetwork(embedding_dim=128).to(device)
+
+try:
+    weights_path = os.path.join(os.path.dirname(__file__), "..", "weights", "siamese_model.pth")
+    if hasattr(torch.serialization, 'add_safe_globals'):
+        model.load_state_dict(torch.load(weights_path, map_location=device, weights_only=True))
+    else:
+        model.load_state_dict(torch.load(weights_path, map_location=device))
+    print(f"[INFO] Loaded trained face weights from {weights_path} successfully.")
+except FileNotFoundError:
+    print("[WARNING] No trained weights found. Using random features for demonstration.")
+
+model.eval()
+
+# --- Sentiment Analysis Model Setup ---
+SENTI_MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "weights", "senti_lr.pkl")
+try:
+    senti_model = joblib.load(SENTI_MODEL_PATH)
+    print(f"[INFO] Loaded sentiment analysis model from {SENTI_MODEL_PATH} successfully.")
+except Exception as e:
+    print(f"[WARNING] Could not load sentiment model: {e}")
+    senti_model = None
+
+# Same transform used in training
+transform = transforms.Compose([
+    transforms.Resize((128, 128)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
+
+# --- OTP Logic ---
+# Simple in-memory store: {email: {"otp": str, "expires": datetime}}
+otp_store: Dict[str, dict] = {}
+
+class OTPRequest(BaseModel):
+    email: EmailStr
+
+class OTPVerify(BaseModel):
+    email: EmailStr
+    otp: str
+
+@app.post("/send-otp")
+async def send_otp(request: OTPRequest):
+    otp = f"{random.randint(100000, 999999)}"
+    expires = datetime.datetime.now() + datetime.timedelta(minutes=5)
+    otp_store[request.email] = {"otp": otp, "expires": expires}
+    
+    # Email configuration
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+    smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    smtp_port = int(os.getenv("SMTP_PORT", 587))
+    
+    if not smtp_user or not smtp_password:
+        # Fallback for development if no credentials provided
+        print(f"[DEVELOPMENT] No SMTP credentials found. OTP for {request.email}: {otp}")
+        return {"success": True, "message": "OTP generated (check server logs in dev mode)"}
+
+    print(f"[INFO] Attempting to send OTP to {request.email} via {smtp_host}:{smtp_port}...")
+
+    message = EmailMessage()
+    message["From"] = smtp_user
+    message["To"] = request.email
+    message["Subject"] = "Your Face-Auth Verification Code"
+    message.set_content(f"Your verification code is: {otp}\n\nThis code will expire in 5 minutes.")
+
+    try:
+        await aiosmtplib.send(
+            message,
+            hostname=smtp_host,
+            port=smtp_port,
+            username=smtp_user,
+            password=smtp_password,
+            use_tls=False,
+            start_tls=True,
+        )
+        print(f"[SUCCESS] OTP sent to {request.email}")
+        return {"success": True, "message": "OTP sent successfully"}
+    except Exception as e:
+        print(f"[ERROR] Failed to send email: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send OTP email")
+
+@app.post("/verify-otp")
+async def verify_otp(request: OTPVerify):
+    stored = otp_store.get(request.email)
+    if not stored:
+        raise HTTPException(status_code=400, detail="No OTP found for this email")
+    
+    if datetime.datetime.now() > stored["expires"]:
+        del otp_store[request.email]
+        raise HTTPException(status_code=400, detail="OTP has expired")
+    
+    if stored["otp"] != request.otp:
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+    
+    # Success - clear OTP
+    return {"success": True, "message": "OTP verified"}
+
+@app.post("/embed")
+async def embed_face(file: UploadFile = File(...)):
+    """
+    Accepts an uploaded image and returns a 128-d face embedding array.
+    """
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents)).convert("RGB")
+        tensor = transform(image).unsqueeze(0).to(device)
+        
+        with torch.no_grad():
+            embedding = model.forward_once(tensor)
+            
+        return {"embedding": embedding.cpu().numpy().tolist()[0]}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/verify")
+async def verify_face(
+    file: UploadFile = File(...), 
+    stored_embedding: str = Form(...)
+):
+    """
+    Accepts a live image and a stored embedding string.
+    Computes distance and returns biometric verification decision.
+    """
+    try:
+        # 1. Process live image into embedding
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents)).convert("RGB")
+        tensor = transform(image).unsqueeze(0).to(device)
+        
+        with torch.no_grad():
+            live_embedding = model.forward_once(tensor)
+            
+        # 2. Parse stored embedding
+        stored_vector = json.loads(stored_embedding)
+        stored_tensor = torch.tensor(stored_vector, dtype=torch.float32).unsqueeze(0).to(device)
+        
+        # 3. Compute Siamese Network Euclidean Distance
+        distance = F.pairwise_distance(live_embedding, stored_tensor).item()
+        
+        # Adjust threshold based on your model's contrastive margin. 1.0 is standard.
+        THRESHOLD = 1.0 
+        
+        return {
+            "success": True,
+            "distance": distance,
+            "granted": distance < THRESHOLD
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# --- Sentiment Analysis Endpoint ---
+@app.post("/api/predict")
+async def predict_sentiment(file: UploadFile = File(...)):
+    if not senti_model:
+        raise HTTPException(status_code=500, detail="Sentiment analysis model not loaded")
+    
+    try:
+        # Read the CSV file
+        contents = await file.read()
+        df = pd.read_csv(io.BytesIO(contents))
+
+        # Validate columns
+        required_cols = ['product_name', 'review']
+        if not all(col in df.columns for col in required_cols):
+            raise HTTPException(status_code=400, detail=f"CSV must contain columns: {required_cols}")
+
+        # Predict sentiment
+        df['review'] = df['review'].fillna('no review').astype(str)
+        predictions = senti_model.predict(df['review'])
+        df['predicted_sentiment'] = predictions
+        
+        # Map numeric labels to text
+        sentiment_map = {0: 'Negative', 1: 'Positive'}
+        df['sentiment_label'] = df['predicted_sentiment'].map(sentiment_map)
+
+        # Calculate sentiment distribution
+        sentiment_counts = df['sentiment_label'].value_counts().to_dict()
+
+        # Calculate top products by positive sentiment
+        top_products = (
+            df.groupby('product_name')['predicted_sentiment']
+            .mean()
+            .sort_values(ascending=False)
+            .head(10)
+            .to_dict()
+        )
+
+        # Get sample predictions
+        sample_data = df[['product_name', 'review', 'sentiment_label']].head(20).to_dict('records')
+
+        return {
+            'success': True,
+            'sentiment_distribution': sentiment_counts,
+            'top_products': top_products,
+            'sample_predictions': sample_data,
+            'total_reviews': len(df)
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
