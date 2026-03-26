@@ -1,6 +1,6 @@
 import sys
 import os
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -104,8 +104,24 @@ class OTPVerify(BaseModel):
     email: EmailStr
     otp: str
 
+# Define background email sender
+async def send_email_async(message, hostname, port, username, password, use_tls, start_tls, email):
+    try:
+        await aiosmtplib.send(
+            message,
+            hostname=hostname,
+            port=port,
+            username=username,
+            password=password,
+            use_tls=use_tls,
+            start_tls=start_tls,
+        )
+        print(f"[SUCCESS] OTP sent to {email}")
+    except Exception as e:
+        print(f"[ERROR] Background email failed for {email}: {e} (This is normal if SMTP is blocked)")
+
 @app.post("/send-otp")
-async def send_otp(request: OTPRequest):
+async def send_otp(request: OTPRequest, background_tasks: BackgroundTasks):
     otp = f"{random.randint(100000, 999999)}"
     expires = datetime.datetime.now() + datetime.timedelta(minutes=5)
     otp_store[request.email] = {"otp": otp, "expires": expires}
@@ -119,36 +135,26 @@ async def send_otp(request: OTPRequest):
     smtp_use_tls = os.getenv("SMTP_USE_TLS", "false").lower() == "true"
     smtp_start_tls = os.getenv("SMTP_START_TLS", "true").lower() == "true"
     
+    # Still return success so user can check logs for the OTP
     if not smtp_user or not smtp_password:
-        # Fallback for development if no credentials provided
-        print(f"[DEVELOPMENT] No SMTP credentials found. OTP for {request.email}: {otp}")
-        return {"success": True, "message": "OTP generated (check server logs in dev mode)"}
+        return {"success": True, "message": "OTP generated (Check logs)"}
 
     print(f"[INFO] OTP for {request.email}: {otp}")
-    print(f"[INFO] Attempting to send OTP to {request.email} via {smtp_host}:{smtp_port}...")
-
+    
     message = EmailMessage()
     message["From"] = smtp_user
     message["To"] = request.email
     message["Subject"] = "Your Face-Auth Verification Code"
     message.set_content(f"Your verification code is: {otp}\n\nThis code will expire in 5 minutes.")
 
-    try:
-        await aiosmtplib.send(
-            message,
-            hostname=smtp_host,
-            port=smtp_port,
-            username=smtp_user,
-            password=smtp_password,
-            use_tls=smtp_use_tls,
-            start_tls=smtp_start_tls,
-        )
-        print(f"[SUCCESS] OTP sent to {request.email}")
-        return {"success": True, "message": "OTP sent successfully"}
-    except Exception as e:
-        print(f"[ERROR] Failed to send email: {e}")
-        # Still return success so user can check logs for the OTP on Railway
-        return {"success": True, "message": "OTP Generated (Check logs if email is delayed)"}
+    # Fire and forget the email task so the user doesn't wait for timeouts
+    background_tasks.add_task(
+        send_email_async, 
+        message, smtp_host, smtp_port, smtp_user, smtp_password, 
+        smtp_use_tls, smtp_start_tls, request.email
+    )
+
+    return {"success": True, "message": "Verification code generated!"}
 
 @app.post("/verify-otp")
 async def verify_otp(request: OTPVerify):
