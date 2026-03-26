@@ -33,9 +33,8 @@ from torchvision import transforms
 
 import logging
 
-# Configure logging to file
+# Use simple stdout logging for production (captured by Railway logs)
 logging.basicConfig(
-    filename='verify_perf.log',
     level=logging.INFO,
     format='%(asctime)s - %(message)s',
     force=True

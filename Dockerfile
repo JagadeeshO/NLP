@@ -40,8 +40,8 @@ ENV PYTHONPATH=/app/backend
 # Expose port
 EXPOSE 8080
 
-# Move to the backend folder so imports work correctly
+# Move to the backend folder
 WORKDIR /app/backend
 
-# Run the server
-CMD ["python", "app/server.py"]
+# Use the full module path and ensure we use the dynamic PORT
+CMD python -m uvicorn app.server:app --host 0.0.0.0 --port ${PORT}
