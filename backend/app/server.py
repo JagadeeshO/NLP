@@ -109,6 +109,7 @@ async def send_otp(request: OTPRequest):
     otp = f"{random.randint(100000, 999999)}"
     expires = datetime.datetime.now() + datetime.timedelta(minutes=5)
     otp_store[request.email] = {"otp": otp, "expires": expires}
+    logging.info(f"Generated OTP for {request.email}: {otp}")
     
     # Email configuration
     smtp_user = os.getenv("SMTP_USER")
@@ -123,6 +124,7 @@ async def send_otp(request: OTPRequest):
         print(f"[DEVELOPMENT] No SMTP credentials found. OTP for {request.email}: {otp}")
         return {"success": True, "message": "OTP generated (check server logs in dev mode)"}
 
+    print(f"[INFO] OTP for {request.email}: {otp}")
     print(f"[INFO] Attempting to send OTP to {request.email} via {smtp_host}:{smtp_port}...")
 
     message = EmailMessage()
