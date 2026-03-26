@@ -40,5 +40,8 @@ ENV PYTHONPATH=/app/backend
 # Expose port
 EXPOSE 8080
 
+# Move to the backend folder so imports work correctly
+WORKDIR /app/backend
+
 # Run the server
-CMD ["python", "backend/app/server.py"]
+CMD ["python", "app/server.py"]
