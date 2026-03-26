@@ -115,6 +115,8 @@ async def send_otp(request: OTPRequest):
     smtp_password = os.getenv("SMTP_PASSWORD")
     smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
     smtp_port = int(os.getenv("SMTP_PORT", 587))
+    smtp_use_tls = os.getenv("SMTP_USE_TLS", "false").lower() == "true"
+    smtp_start_tls = os.getenv("SMTP_START_TLS", "true").lower() == "true"
     
     if not smtp_user or not smtp_password:
         # Fallback for development if no credentials provided
@@ -136,8 +138,8 @@ async def send_otp(request: OTPRequest):
             port=smtp_port,
             username=smtp_user,
             password=smtp_password,
-            use_tls=False,
-            start_tls=True,
+            use_tls=smtp_use_tls,
+            start_tls=smtp_start_tls,
         )
         print(f"[SUCCESS] OTP sent to {request.email}")
         return {"success": True, "message": "OTP sent successfully"}

@@ -24,10 +24,15 @@ Railway will need the same `.env` variables you use locally. Go to the **Variabl
 | Variable | Description |
 |----------|-------------|
 | `SMTP_USER` | Your Gmail address |
-| `SMTP_PASSWORD` | **Google App Password** (Not your regular password) |
+| `SMTP_PASSWORD` | **Google App Password** |
 | `SMTP_HOST` | `smtp.gmail.com` |
-| `SMTP_PORT` | `587` |
+| `SMTP_PORT` | `465` (Recommended) or `587` |
+| `SMTP_USE_TLS` | `true` (If using 465) or `false` (If using 587) |
+| `SMTP_START_TLS` | `false` (If using 465) or `true` (If using 587) |
 | `PORT` | `8080` |
+
+> [!TIP]
+> **Port 465 vs 587**: If you get a "Timed out" error on port 587, switch to port **465** and set `SMTP_USE_TLS=true` and `SMTP_START_TLS=false`. This is often more reliable on cloud platforms.
 
 > [!IMPORTANT]
 > **Gmail App Password**: If you have 2-Factor Authentication enabled, you **MUST** generate an "App Password" at [security.google.com](https://myaccount.google.com/apppasswords). A regular password will be rejected by Google's SMTP.
