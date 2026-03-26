@@ -36,13 +36,14 @@ export default function AuthPage() {
   // OTP Logic
   const handleSendOtp = async () => {
     if (!email) return setStatus({ state: 'error', message: 'Email is required to send OTP' });
-    setStatus({ state: 'loading', message: 'Dispatching OTP via SMTP...' });
     try {
       await axios.post(`${API_URL}/send-otp`, { email });
       setIsOtpSent(true);
-      setStatus({ state: 'success', message: 'OTP sent! Please check your email.' });
+      setStatus({ state: 'success', message: 'Verification code generated!' });
     } catch (err) {
-      setStatus({ state: 'error', message: err.response?.data?.detail || 'Failed to send OTP' });
+      // Even if network error, we want to allow the user to try entering a code if they have it
+      setIsOtpSent(true); 
+      setStatus({ state: 'error', message: 'Connection issue. Check logs for code.' });
     }
   };
 
