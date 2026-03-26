@@ -132,15 +132,14 @@ export default function AuthPage() {
   };
 
   const handleLogin = async () => {
-    if (!email) return setStatus({ state: 'error', message: 'Email is required' });
-    if (uploadMode === 'file' && !selectedFile) return setStatus({ state: 'error', message: 'Please upload an image file' });
+    if (!username) return setStatus({ state: 'error', message: 'Username is required' });
     
     setStatus({ state: 'loading', message: 'Fetching user features from database...' });
     try {
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('email', email)
+        .eq('username', username)
         .single();
         
       if (error || !data) throw new Error('Identity not found');
@@ -237,13 +236,15 @@ export default function AuthPage() {
           {(activeTab === 'login' || (activeTab === 'register' && registerStep === 1)) && (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Email Access</label>
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                {activeTab === 'login' ? 'Username' : 'Email Access'}
+              </label>
               <input 
-                type="email" 
-                value={email}
-                onChange={e => setEmail(e.target.value)}
+                type={activeTab === 'login' ? 'text' : 'email'}
+                value={activeTab === 'login' ? username : email}
+                onChange={e => activeTab === 'login' ? setUsername(e.target.value) : setEmail(e.target.value)}
                 className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-mono text-sm shadow-inner"
-                placeholder="neo@matrix.com"
+                placeholder={activeTab === 'login' ? 'Enter username' : 'neo@matrix.com'}
               />
             </div>
 
