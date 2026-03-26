@@ -23,11 +23,14 @@ Railway will need the same `.env` variables you use locally. Go to the **Variabl
 
 | Variable | Description |
 |----------|-------------|
-| `SUPABASE_URL` | Your Supabase project URL |
-| `SUPABASE_KEY` | Your Supabase anon/public key |
-| `SMTP_USER` | Your Gmail address (for OTP) |
-| `SMTP_PASSWORD` | Your Gmail App Password |
-| `PORT` | `8080` (Railway usually sets this automatically) |
+| `SMTP_USER` | Your Gmail address |
+| `SMTP_PASSWORD` | **Google App Password** (Not your regular password) |
+| `SMTP_HOST` | `smtp.gmail.com` |
+| `SMTP_PORT` | `587` |
+| `PORT` | `8080` |
+
+> [!IMPORTANT]
+> **Gmail App Password**: If you have 2-Factor Authentication enabled, you **MUST** generate an "App Password" at [security.google.com](https://myaccount.google.com/apppasswords). A regular password will be rejected by Google's SMTP.
 
 ### 4. Deploy
 Once the variables are set, Railway will automatically trigger a build using the `Dockerfile`.
