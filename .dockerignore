@@ -1,0 +1,14 @@
+# Ignore local development artifacts
+node_modules
+web/node_modules
+backend/__pycache__
+backend/.venv
+.venv
+__pycache__
+.git
+.vscode
+dist
+web/dist
+backend/dist
+verify_perf.log
+.env

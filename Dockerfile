@@ -1,9 +1,13 @@
 # Stage 1: Build the React frontend
 FROM node:20-alpine AS frontend-builder
 WORKDIR /web
+# Only copy package files first for better caching
 COPY web/package*.json ./
+# Run install on the container to set correct permissions
 RUN npm install
+# Copy the rest of the source
 COPY web/ ./
+# Run build
 RUN npm run build
 
 # Stage 2: Build the FastAPI backend
