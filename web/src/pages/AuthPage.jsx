@@ -192,6 +192,8 @@ export default function AuthPage() {
       setIsOtpSent(false);
       setIsOtpVerified(false);
       setOtp('');
+      // Force camera mode on tab switch for maximum security
+      setUploadMode('camera');
   };
 
   return (
@@ -217,8 +219,8 @@ export default function AuthPage() {
           </button>
         </div>
 
-        {/* Input Toggle for Photos */}
-        {((activeTab === 'register' && registerStep === 2) || activeTab === 'login') && (
+        {/* Input Toggle for Photos (Only for Registration Step 2) */}
+        {(activeTab === 'register' && registerStep === 2) && (
             <div className="flex bg-gray-900/50 p-1 mx-8 mt-6 rounded-lg border border-gray-800/50">
                <button onClick={() => setUploadMode('camera')} className={`flex-1 py-2 text-xs font-semibold rounded-md transition-all ${uploadMode === 'camera' ? 'bg-indigo-500 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}>
                  <Monitor className="w-3 h-3 inline mr-1" /> Use Webcam
