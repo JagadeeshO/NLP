@@ -40,8 +40,6 @@ ENV PYTHONPATH=/app/backend
 # Expose port
 EXPOSE 8080
 
-# Move to the backend folder
-WORKDIR /app/backend
-
-# Use the full module path and ensure we use the dynamic PORT
-CMD python -m uvicorn app.server:app --host 0.0.0.0 --port ${PORT}
+# Use gunicorn with uvicorn workers for professional production handling
+# This handles the PORT and binding naturally on Railway
+CMD gunicorn -w 1 -k uvicorn.workers.UvicornWorker app.server:app --bind 0.0.0.0:${PORT} --timeout 120

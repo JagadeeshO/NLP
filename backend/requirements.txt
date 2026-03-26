@@ -12,3 +12,5 @@ numpy
 tqdm
 pandas
 joblib
+gunicorn
+uvicorn[standard]

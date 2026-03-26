@@ -17,6 +17,7 @@ from pydantic import BaseModel, EmailStr
 from dotenv import load_dotenv
 import aiosmtplib
 from email.message import EmailMessage
+from contextlib import asynccontextmanager
 import pandas as pd
 import joblib
 import time
@@ -40,41 +41,50 @@ logging.basicConfig(
     force=True
 )
 
-app = FastAPI(title="Face Auth API")
-
-# Allow requests from our React App
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Initialize Model State globally
+# --- Global State ---
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model = SiameseNetwork(embedding_dim=128).to(device)
+model = None
+senti_model = None
 
-try:
-    weights_path = os.path.join(os.path.dirname(__file__), "..", "weights", "siamese_model.pth")
-    if hasattr(torch.serialization, 'add_safe_globals'):
-        model.load_state_dict(torch.load(weights_path, map_location=device, weights_only=True))
-    else:
-        model.load_state_dict(torch.load(weights_path, map_location=device))
-    print(f"[INFO] Loaded trained face weights from {weights_path} successfully.")
-except FileNotFoundError:
-    print("[WARNING] No trained weights found. Using random features for demonstration.")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Load models on startup to save memory if needed
+    global model, senti_model
+    
+    # 1. Face Model
+    from core.model import SiameseNetwork
+    model = SiameseNetwork(embedding_dim=128).to(device)
+    try:
+        weights_path = os.path.join(os.path.dirname(__file__), "..", "weights", "siamese_model.pth")
+        if os.path.exists(weights_path):
+            if hasattr(torch.serialization, 'add_safe_globals'):
+                model.load_state_dict(torch.load(weights_path, map_location=device, weights_only=True))
+            else:
+                model.load_state_dict(torch.load(weights_path, map_location=device))
+            logging.info(f"Loaded face weights from {weights_path}")
+        else:
+            logging.warning(f"Weights not found at {weights_path}. Using random initialization.")
+    except Exception as e:
+        logging.error(f"Error loading face weights: {e}")
+    model.eval()
 
-model.eval()
-
-# --- Sentiment Analysis Model Setup ---
-SENTI_MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "weights", "senti_lr.pkl")
-try:
-    senti_model = joblib.load(SENTI_MODEL_PATH)
-    print(f"[INFO] Loaded sentiment analysis model from {SENTI_MODEL_PATH} successfully.")
-except Exception as e:
-    print(f"[WARNING] Could not load sentiment model: {e}")
+    # 2. Sentiment Model
+    senti_path = os.path.join(os.path.dirname(__file__), "..", "weights", "senti_lr.pkl")
+    try:
+        if os.path.exists(senti_path):
+            senti_model = joblib.load(senti_path)
+            logging.info(f"Loaded sentiment model from {senti_path}")
+        else:
+            logging.warning(f"Sentiment model not found at {senti_path}")
+    except Exception as e:
+        logging.error(f"Error loading sentiment model: {e}")
+        
+    yield
+    # Clean up on shutdown
+    model = None
     senti_model = None
+
+app = FastAPI(title="Face Auth API", lifespan=lifespan)
 
 # Same transform used in training
 transform = transforms.Compose([
